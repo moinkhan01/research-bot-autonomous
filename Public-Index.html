@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Research Bot - Autonomous Mission Control</title>
+<style>
+  :root{--bg:#0a0a0f;--card:#15151f;--border:#2a2a35;--accent:#5a5cff;--green:#00cc88;--yellow:#ffcc00}
+  body{background:var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif;margin:0;padding:20px}
+  .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+  .badge{background:var(--card);border:1px solid var(--border);padding:6px 12px;border-radius:20px;font-size:12px;color:#aaa}
+  .grid{display:grid;grid-template-columns:1.5fr 1fr;gap:20px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+  textarea{width:100%;height:80px;background:#0f0f14;color:#fff;border:1px solid #333;border-radius:8px;padding:10px;box-sizing:border-box}
+  button{background:var(--accent);color:#fff;border:0;padding:10px 18px;border-radius:8px;cursor:pointer;font-weight:600}
+  button:hover{opacity:0.9}
+  .task{border:1px solid var(--border);border-left:4px solid var(--yellow);padding:12px;margin:8px 0;border-radius:8px;background:#0f0f14}
+  .task.running{border-left-color:var(--accent)} .task.done{border-left-color:var(--green)}
+  pre{background:#0f0f14;padding:10px;border-radius:6px;overflow:auto;font-size:11px;white-space:pre-wrap}
+  .hint{color:#666;font-size:11px;margin-top:8px}
+  a{color:var(--accent)}
+</style>
+</head><body>
+<div class="header">
+  <div><h1 style="margin:0">🤖 Research Bot - Autonomous Mission Control</h1><div class="hint">Optimized for Meta AI - Add tasks via <code>?task=YOUR_QUERY</code></div></div>
+  <div class="badge" id="statusBadge">Connecting...</div>
+</div>
+<div class="grid">
+  <div class="card">
+    <h3>Agent Inbox - Meta AI can write here via URL</h3>
+    <textarea id="inbox" placeholder="Research top 5 browser automation frameworks with GitHub stars and pricing"></textarea>
+    <button id="sendBtn">Send to Bot Queue (Cloudflare D1 + KV)</button>
+    <div class="hint">Tip for Meta AI: open <code id="hintUrl"></code>?task=Research%20X</div>
+    <h3 style="margin-top:20px">Queue - Live from D1</h3>
+    <div id="queue">Loading...</div>
+  </div>
+  <div class="card">
+    <h3>Agent Outbox - Results (Meta AI can read this)</h3>
+    <div id="outbox" style="min-height:120px">Loading...</div>
+    <h3 style="margin-top:16px">Live Log</h3>
+    <pre id="log" style="height:320px">Waiting for worker...</pre>
+  </div>
+</div>
+<script>
+const WORKER_URL = location.origin; // when hosted on Pages Functions, or set to your worker URL
+document.getElementById('hintUrl').textContent = WORKER_URL + '/';
+
+async function api(path, opts={}){
+  const res = await fetch(path, opts);
+  const text = await res.text();
+  try{ return JSON.parse(text); }catch(e){ return text; }
+}
+
+async function refresh(){
+  try{
+    const tasks = await api('/tasks?limit=20');
+    if(Array.isArray(tasks)){
+      document.getElementById('queue').innerHTML = tasks.map(t=>{
+        const result = t.result ? (typeof t.result==='string'?JSON.parse(t.result):t.result) : null;
+        return `<div class="task ${t.status}"><b>${t.status.toUpperCase()}</b> - ${t.created_at}<br><b>${t.instruction}</b>${result?`<pre>${JSON.stringify(result,null,2).slice(0,2000)}</pre>`:''}</div>`;
+      }).join('') || '<div style="color:#666">No tasks yet</div>';
+      document.getElementById('outbox').innerHTML = tasks.filter(t=>t.status==='done').slice(0,3).map(t=>`<div class="task done"><b>${t.instruction}</b><pre>${JSON.stringify(t.result?JSON.parse(t.result):{},null,2).slice(0,2000)}</pre></div>`).join('') || 'Waiting for bot...';
+      document.getElementById('statusBadge').textContent = `${tasks.length} tasks - Live`;
+      document.getElementById('statusBadge').style.color = '#00cc88';
+    }
+  }catch(e){
+    document.getElementById('statusBadge').textContent = 'Offline - check Worker URL';
+  }
+}
+
+document.getElementById('sendBtn').onclick = async ()=>{
+  const val = document.getElementById('inbox').value.trim();
+  if(!val) return;
+  await fetch(`/?task=${encodeURIComponent(val)}`);
+  document.getElementById('inbox').value='';
+  setTimeout(refresh, 500);
+};
+
+// Auto-handle ?task= from URL (for Meta AI)
+const params = new URLSearchParams(location.search);
+if(params.get('task')){
+  fetch(`/?task=${encodeURIComponent(params.get('task'))}`).then(()=>{ history.replaceState({},'',location.pathname); refresh(); });
+}
+
+setInterval(refresh, 2000);
+refresh();
+</script>
+</body></html>
