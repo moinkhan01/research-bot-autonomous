@@ -1,36 +1,13 @@
-
 name = "research-bot-autonomous"
 main = "worker.js"
 compatibility_date = "2024-12-01"
-compatibility_flags = ["nodejs_compat"]
 
-# === One-click deploy will auto-provision these ===
 [[kv_namespaces]]
 binding = "RESEARCH_BOT_KV"
-id = "REPLACE_OR_AUTO_CREATED"
 
 [[d1_databases]]
 binding = "RESEARCH_BOT_D1"
 database_name = "research-bot-db"
-database_id = "REPLACE_OR_AUTO_CREATED"
 
-[[r2_buckets]]
-binding = "RESEARCH_BOT_R2"
-bucket_name = "research-bot-files"
-
-# Optional: Browser Rendering (10 min/day free) - uncomment to enable cloud fallback
-# [browser]
-# binding = "BROWSER"
-
-# Optional: Workers AI (10K neurons/day free) - uncomment to enable Llama summarization
-# [ai]
-# binding = "AI"
-
-# Cron for keep-alive (5 free per account)
 [triggers]
-crons = ["0 * * * *"] # every hour
-
-# Static assets (Mission Control dashboard)
-[assets]
-directory = "./public"
-binding = "ASSETS"
+crons = ["0 * * * *"]
